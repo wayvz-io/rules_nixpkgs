@@ -10,6 +10,7 @@ local_path_override(
 )
 bazel_dep(name = "rules_java", version = "7.3.1")
 bazel_dep(name = "bazel_skylib", version = "1.0.3")
+bazel_dep(name = "platforms", version = "0.0.10")
 
 toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
 use_repo(toolchains, "remote_java_tools")

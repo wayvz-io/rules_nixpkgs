@@ -32,17 +32,29 @@ bazel_dep(name = "rules_cc", version = "0.0.9")
 bazel_dep(name = "platforms", version = "0.0.10")
 bazel_dep(name = "rules_java", version = "7.3.1")
 
-non_module_deps = use_extension("//:non_module_deps.bzl", "non_module_deps")
-use_repo(non_module_deps, "nixpkgs")
-use_repo(non_module_deps, "nixpkgs_go_sdk_toolchains")
+go_toolchain = use_extension("@rules_nixpkgs_go//extensions:toolchain.bzl", "go_toolchain")
+go_toolchain.flake(
+    name = "nixpkgs_go_sdk",
+    lock_file = "//:flake.lock",
+)
+use_repo(go_toolchain, "nixpkgs_go_sdk_toolchains")
 register_toolchains("@nixpkgs_go_sdk_toolchains//:all")
 
 # The Go toolchain requires a CC toolchain.
-use_repo(non_module_deps, "nixpkgs_config_cc")
-use_repo(non_module_deps, "nixpkgs_config_cc_info")
-use_repo(non_module_deps, "nixpkgs_config_cc_toolchains")
-register_toolchains("@nixpkgs_config_cc_toolchains//:all")
+cc_toolchain = use_extension("@rules_nixpkgs_cc//extensions:toolchain.bzl", "cc_toolchain")
+cc_toolchain.flake(
+    name = "nixpkgs_config_cc",
+    lock_file = "//:flake.lock",
+)
+use_repo(cc_toolchain, "nixpkgs_config_cc", "nixpkgs_config_cc_info")
+# Note: CC toolchain registration is handled by the nixpkgs_cc_configure function
+# register_toolchains("@nixpkgs_config_cc//:toolchain")
 
-# Bazel requries a Java runtime to run tests.
-use_repo(non_module_deps, "nixpkgs_java_runtime_toolchain")
+# Bazel requires a Java runtime to run tests.
+java_toolchain = use_extension("@rules_nixpkgs_java//extensions:toolchain.bzl", "java_toolchain")
+java_toolchain.flake(
+    name = "nixpkgs_java_runtime",
+    lock_file = "//:flake.lock",
+)
+use_repo(java_toolchain, "nixpkgs_java_runtime", "nixpkgs_java_runtime_toolchain")
 register_toolchains("@nixpkgs_java_runtime_toolchain//:all")

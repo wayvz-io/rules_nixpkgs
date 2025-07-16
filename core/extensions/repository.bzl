@@ -70,11 +70,41 @@ def _expr_repo(expr):
         nix_file_deps = expr.file_deps,
     )
 
+def _flake_repo(flake):
+    # Use a custom template that handles both "github" and "tarball" types
+    nix_file_content = """
+let
+  lock = builtins.fromJSON (builtins.readFile ./{});
+  src = lock.nodes.nixpkgs.locked;
+  nixpkgs =
+    if src.type == "github" then
+      fetchTarball {{
+        url = "https://github.com/${{src.owner}}/${{src.repo}}/archive/${{src.rev}}.tar.gz";
+        sha256 = src.narHash;
+      }}
+    else if src.type == "tarball" then
+      fetchTarball {{
+        url = src.url;
+        sha256 = src.narHash;
+      }}
+    else
+      abort "Unsupported nixpkgs source type: ${{src.type}}";
+in
+import nixpkgs
+""".format(flake.lock_file.name)
+
+    nixpkgs_local_repository(
+        name = flake.name,
+        nix_file_content = nix_file_content,
+        nix_file_deps = flake.file_deps,
+    )
+
 _OVERRIDE_TAGS = {
     "github": _github_repo,
     "http": _http_repo,
     "file": _file_repo,
     "expr": _expr_repo,
+    "flake": _flake_repo,
 }
 
 def _nix_repo_impl(module_ctx):
@@ -242,6 +272,14 @@ _FILE_DEPS_ATTRS = {
     ),
 }
 
+_FLAKE_ATTRS = {
+    "lock_file": attr.label(
+        doc = "The flake.lock file.",
+        mandatory = True,
+        allow_single_file = True,
+    ),
+}
+
 _default_tag = tag_class(
     attrs = _DEFAULT_ATTRS,
     doc = "Depend on this global default repository. May not be used on an isolated module extension.",
@@ -267,6 +305,11 @@ _expr_tag = tag_class(
     doc = "Import a Nix repository from a Nix expression. May only be used on an isolated module extension or in the root module or rules_nixpkgs_core.",
 )
 
+_flake_tag = tag_class(
+    attrs = dicts.add(_NAME_ATTRS, _FLAKE_ATTRS, _FILE_DEPS_ATTRS),
+    doc = "Import a Nix repository from a flake.lock file. May only be used on an isolated module extension or in the root module or rules_nixpkgs_core.",
+)
+
 nix_repo = module_extension(
     _nix_repo_impl,
     tag_classes = {
@@ -275,5 +318,6 @@ nix_repo = module_extension(
         "http": _http_tag,
         "file": _file_tag,
         "expr": _expr_tag,
+        "flake": _flake_tag,
     },
 )
